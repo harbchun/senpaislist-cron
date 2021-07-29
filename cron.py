@@ -1,5 +1,8 @@
 import os
+import json
 import boto3
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 from utils import times
@@ -19,13 +22,14 @@ SQL_PORT = os.getenv('SQL_PORT')
 SQL_USER = os.getenv('SQL_USER')
 SQL_PASSWORD = os.getenv('SQL_PASSWORD')
 SQL_DBNAME = os.getenv('SQL_DBNAME')
+Base = automap_base()
 
 # Other
 YEAR = times.get_current_year()
 SEASON = times.get_current_season()
 
 def main():
-    conn_str = 'postgresql+psycopg2://%s:%s@%s:%s:%s' \
+    conn_str = 'postgresql://%s:%s@%s:%s:%s' \
         % (SQL_USER, SQL_PASSWORD, SQL_HOST, SQL_PORT, SQL_DBNAME)
     engine = create_engine(conn_str)
     connection = engine.connect()
@@ -39,6 +43,9 @@ def main():
     )
     data_bucket = s3.Bucket(AWS_DATA_BUCKET_NAME)
     data_objects = data_bucket.objects.filter(Prefix=str(YEAR)+'/'+SEASON)
+    for data_object in data_objects:
+        animeid = json.loads(data_object.get()['Body'].read().decode('utf-8')).get('anime_id', '')
+        connection.execute('SELECT * from %s where anime_id = %s')
 
 if __name__ == '__main__':
     main()
